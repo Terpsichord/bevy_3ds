@@ -7,32 +7,35 @@ use bevy::app::AppExit;
 use bevy::input::gamepad::GamepadButtonChangedEvent;
 use bevy::log;
 use bevy::prelude::*;
+use ctru::applets::error;
 
 use bevy_3ds::input::GAMEPAD;
 
 fn main() {
-    ctru::use_panic_handler();
+    error::set_panic_hook(false);
 
-    let mut app = App::new();
-
-    app
-        // Add default bevy_3ds plugins
-        .add_plugins(
+    App::new()
+        .add_plugins((
+            bevy_3ds::log::SocketLogPlugin,
+            // Add default bevy_3ds plugins
             bevy_3ds::DefaultPlugins
                 // Configure logging to debug level
                 .set(log::LogPlugin {
                     level: log::Level::DEBUG,
                     ..default()
                 }),
-        )
+        ))
         // Startup systems
         .insert_resource(MoveTimer(Timer::from_seconds(0.75, TimerMode::Repeating)))
-        .add_startup_system(spawn_player)
+        .add_systems(Startup, spawn_player)
         // Normal runtime systems
-        .add_system(handle_inputs)
-        .add_system(move_player.after(handle_inputs))
+        .add_systems(Update, (handle_inputs, move_player).chain())
         // 🚀
         .run();
+}
+
+fn hello_world_system(gfx: NonSendMut<ctru::services::gfx::Gfx>) {
+    panic!("Hello world");
 }
 
 #[derive(Resource)]
@@ -72,6 +75,7 @@ fn move_player(
     mut move_timer: ResMut<MoveTimer>,
     time: Res<Time>,
 ) {
+    panic!("move player\nplayer_pos: {:?}", player_pos.single_mut());
     move_timer.0.tick(time.delta());
     if move_timer.0.just_finished() {
         let (mut pos, dir) = player_pos.single_mut();
@@ -102,7 +106,7 @@ fn handle_inputs(
         button_type,
         value,
         gamepad,
-    } in gamepad_event.iter()
+    } in gamepad_event.read()
     {
         assert_eq!(gamepad, GAMEPAD);
 

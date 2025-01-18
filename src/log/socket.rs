@@ -3,30 +3,28 @@
 
 use bevy::app::prelude::*;
 use bevy::ecs::prelude::*;
-use ctru::prelude::{Console, Gfx};
 use ctru::services::soc::Soc;
 
 #[derive(Default)]
-pub struct LogPlugin;
+pub struct SocketLogPlugin;
 
-#[derive(Resource)]
 struct SocketLogger(Soc);
 
 impl Default for SocketLogger {
     fn default() -> Self {
-        let soc = Soc::init().expect("failed to init SOC");
+        let soc = Soc::new().expect("failed to init SOC");
         Self(soc)
     }
 }
 
-impl Plugin for LogPlugin {
+impl Plugin for SocketLogPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SocketLogger>()
-            .add_startup_system(log_to_3dslink);
+        app.init_non_send_resource::<SocketLogger>()
+            .add_systems(Startup, log_to_3dslink);
     }
 }
 
-fn log_to_3dslink(mut soc: ResMut<SocketLogger>) {
+fn log_to_3dslink(mut soc: NonSendMut<SocketLogger>) {
     // TODO: should this ignore failures? Or perhaps configurable behavior?
     soc.0
         .redirect_to_3dslink(true, true)

@@ -8,29 +8,31 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 ctru-rs = { git = "https://github.com/rust3ds/ctru-rs.git" }
+ctru-sys = { git = "https://github.com/rust3ds/ctru-rs.git" }
+
 
 [dependencies.bevy]
-version = "0.10.0"
+version = "0.14.0"
 default-features = false
 features = [
-    "animation",
+#    "animation",
     "bevy_asset",
-    "bevy_audio",
-    "bevy_gilrs",
+#    "bevy_audio",
+    "bevy_color",
     "bevy_scene",
-    # "bevy_winit",
-    "bevy_core_pipeline",
-    "bevy_pbr",
-    "bevy_gltf",
+#    # "bevy_winit",
+#    "bevy_core_pipeline",
+#    "bevy_pbr",
+#    "bevy_gltf",
     "bevy_render",
     "bevy_sprite",
     "bevy_text",
     "bevy_ui",
-    "png",
-    "hdr",
-    "ktx2",
-    "zstd",
-    "vorbis",
+#    "png",
+#    "hdr",
+#    "ktx2",
+#    "zstd",
+#    "vorbis",
     # "x11",
     # "filesystem_watcher",
     # "android_shared_stdcxx",
@@ -40,3 +42,10 @@ features = [
 # Improve performance of the Bevy runtime
 [profile.dev.package.bevy]
 opt-level = 1
+
+[profile.dev]
+incremental = true
+
+[patch.crates-io]
+wgpu = { git = "https://github.com/Terpsichord/wgpu" }
+naga = { git = "https://github.com/Terpsichord/wgpu" }

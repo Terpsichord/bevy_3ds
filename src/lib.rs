@@ -16,20 +16,25 @@ impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>()
             // Add log plugin early so we can see what's going on
-            .add(log::LogPlugin);
+
+            // TODO: Get socket logging working
+            // .add(log::SocketLogPlugin);
+        ;
 
         group = group
             .add(bevy::log::LogPlugin::default())
             .add(bevy::core::TaskPoolPlugin::default())
-            .add(bevy::core::TypeRegistrationPlugin::default())
-            .add(bevy::core::FrameCountPlugin::default())
-            .add(bevy::time::TimePlugin::default())
-            .add(bevy::transform::TransformPlugin::default())
-            .add(bevy::hierarchy::HierarchyPlugin::default())
-            .add(bevy::diagnostic::DiagnosticsPlugin::default())
-            .add(bevy::input::InputPlugin::default())
+            .add(bevy::core::TypeRegistrationPlugin)
+            .add(bevy::core::FrameCountPlugin)
+            .add(bevy::time::TimePlugin)
+            .add(bevy::transform::TransformPlugin)
+            .add(bevy::hierarchy::HierarchyPlugin)
+            .add(bevy::diagnostic::DiagnosticsPlugin)
+            .add(bevy::input::InputPlugin)
             .add(bevy::window::WindowPlugin::default())
-            .add(bevy::a11y::AccessibilityPlugin);
+            .add(bevy::a11y::AccessibilityPlugin)
+            // TODO: Replace this with winit runner
+            .add(bevy::app::ScheduleRunnerPlugin::default());
 
         // Default bevy_3ds plugins
         group = group.add(core::CorePlugin).add(input::InputPlugin);
