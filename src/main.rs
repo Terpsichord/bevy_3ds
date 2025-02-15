@@ -29,6 +29,15 @@ use ctru::services::{
 mod vertices;
 use vertices::*;
 
+struct Transform {
+    angle_x: f32,
+    angle_y: f32,
+    distance: f32,
+    scale_x: f32,
+    scale_y: f32,
+    scale_z: f32,
+}
+
 fn main() {
     let mut soc = Soc::new().expect("failed to get SOC");
     drop(soc.redirect_to_3dslink(true, true));
@@ -70,13 +79,19 @@ fn main() {
     let projection_uniform_idx = scene.program.get_uniform("projection").unwrap();
     let model_view_uniform_idx = scene.program.get_uniform("modelView").unwrap();
 
-    let mut angle_x = 0.0;
-    let mut angle_y = 0.0;
-    let mut distance = 10.0;
-    let mut scale_x = 1.0;
-    let mut scale_y = 1.0;
-    let mut scale_z = 1.0;
+    let mut transform = Transform {
+        angle_x: 0.0,
+        angle_y: 0.0,
+        distance: 10.0,
+        scale_x: 1.0,
+        scale_y: 1.0,
+        scale_z: 1.0,
+    };
     let mut is_scale = false;
+    let mut delta_bumper = 0;
+
+    let mut touch_pos = (0, 0);
+    let mut delta_touch = (0, 0);
     while apt.main_loop() {
         hid.scan_input();
 
@@ -86,13 +101,33 @@ fn main() {
         if hid.keys_down().contains(KeyPad::A) {
             is_scale = !is_scale;
         }
-        update_transform(hid.keys_held(), &mut angle_x, &mut angle_y, &mut distance, &mut scale_x, &mut scale_y, &mut scale_z, is_scale);
+
+        if hid.keys_down().contains(KeyPad::TOUCH) {
+            touch_pos = hid.touch_position();
+        } else if hid.keys_held().contains(KeyPad::TOUCH) {
+            let old_pos = touch_pos;
+            touch_pos = hid.touch_position();
+            delta_touch.0 = touch_pos.0 as i16 - old_pos.0 as i16;
+            delta_touch.1 = touch_pos.1 as i16 - old_pos.1 as i16;
+        }
+
+        if hid.keys_held().contains(KeyPad::L) {
+            delta_bumper -= 1;
+        }
+        if hid.keys_held().contains(KeyPad::R) {
+            delta_bumper += 1;
+        }
+
+        update_transform(&mut transform, (delta_touch.0, delta_touch.1, delta_bumper), is_scale);
+        delta_touch = (0, 0);
+        delta_bumper = 0;
 
 
         let fov = 40.0;
-        let (left_eye, right_eye) = calculate_projections(fov, distance);
+        let screen_depth = 2.0;
+        let (left_eye, right_eye) = calculate_projections(fov, screen_depth + transform.distance);
 
-        let model_view = calculate_model_view(angle_x, angle_y, distance, scale_x, scale_y, scale_z);
+        let model_view = calculate_model_view(&transform);
 
         let targets = [
             (&mut top_left_target, left_eye),
@@ -110,11 +145,6 @@ fn main() {
                         (projection_uniform_idx, projection.into()),
                         (model_view_uniform_idx, (&model_view).into())
                     ]);
-                // let pass = create_render_pass(&scene, vbo_data, target, [
-                //     (projection_uniform_idx, projection.into()),
-                //     (model_view_uniform_idx, (&model_view).into())
-                // ]);
-
                 instance.draw(&pass).unwrap();
             }
         });
@@ -192,7 +222,7 @@ fn create_render_pass<'l, 's, 'buf>(
         .with_vertex_uniforms(vertex_uniforms)
 }
 
-fn calculate_projections(vertical_fov: f32, distance: f32) -> (Matrix4, Matrix4) {
+fn calculate_projections(vertical_fov: f32, screen_depth: f32) -> (Matrix4, Matrix4) {
     let slider_val = ctru::os::current_3d_slider_state();
     let interocular_distance = slider_val / 3.0;
 
@@ -203,7 +233,7 @@ fn calculate_projections(vertical_fov: f32, distance: f32) -> (Matrix4, Matrix4)
         far: 1000.0,
     };
 
-    let (left, right) = StereoDisplacement::new(interocular_distance, distance);
+    let (left, right) = StereoDisplacement::new(interocular_distance, screen_depth);
 
     let (left_eye, right_eye) =
         Projection::perspective(vertical_fov, AspectRatio::TopScreen, clip_planes)
@@ -214,64 +244,24 @@ fn calculate_projections(vertical_fov: f32, distance: f32) -> (Matrix4, Matrix4)
     (left_eye, right_eye)
 }
 
-fn calculate_model_view(angle_x: f32, angle_y: f32, distance: f32, scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix4 {
+fn calculate_model_view(transform: &Transform) -> Matrix4 {
     let mut model_view = Matrix4::identity();
-    model_view.scale(scale_x, scale_y, scale_z);
-    model_view.rotate_x(angle_x);
-    model_view.rotate_y(angle_y);
-    model_view.translate(0.0, 0.0, -distance);
+    model_view.scale(transform.scale_x, transform.scale_y, transform.scale_z);
+    model_view.rotate_x(transform.angle_x);
+    model_view.rotate_y(transform.angle_y);
+    model_view.translate(0.0, 0.0, -transform.distance);
 
     model_view
 }
 
-fn update_transform(keys_held: KeyPad, angle_x: &mut f32, angle_y: &mut f32, distance: &mut f32, scale_x: &mut f32, scale_y: &mut f32, scale_z: &mut f32, change_scale: bool) {
-    if change_scale {
-        if keys_held.contains(KeyPad::DPAD_RIGHT) {
-            *scale_y += 0.02;
-        }
-
-        if keys_held.contains(KeyPad::DPAD_LEFT) {
-            *scale_y -= 0.02;
-        }
-
-        if keys_held.contains(KeyPad::DPAD_UP) {
-            *scale_x -= 0.02;
-        }
-
-        if keys_held.contains(KeyPad::DPAD_DOWN) {
-            *scale_x += 0.02;
-        }
-
-        if keys_held.contains(KeyPad::R) {
-            *scale_z -= 0.02;
-        }
-
-        if keys_held.contains(KeyPad::L) {
-            *scale_z += 0.02;
-        }
+fn update_transform(transform: &mut Transform, delta: (i16, i16, i16), is_scale: bool) {
+    if is_scale {
+        transform.scale_x += delta.0 as f32 * 0.1;
+        transform.scale_y += delta.1 as f32 * 0.1;
+        transform.scale_z += delta.2 as f32 * 0.1;
     } else {
-        if keys_held.contains(KeyPad::DPAD_RIGHT) {
-            *angle_y += 0.02;
-        }
-
-        if keys_held.contains(KeyPad::DPAD_LEFT) {
-            *angle_y -= 0.02;
-        }
-
-        if keys_held.contains(KeyPad::DPAD_UP) {
-            *angle_x -= 0.02;
-        }
-
-        if keys_held.contains(KeyPad::DPAD_DOWN) {
-            *angle_x += 0.02;
-        }
-
-        if keys_held.contains(KeyPad::R) {
-            *distance -= 0.1;
-        }
-
-        if keys_held.contains(KeyPad::L) {
-            *distance += 0.1;
-        }
+        transform.angle_y += delta.0 as f32 * 0.02;
+        transform.angle_x += delta.1 as f32 * 0.02;
+        transform.distance += delta.2 as f32 * 0.1;
     }
 }
