@@ -73,19 +73,26 @@ fn main() {
     let mut angle_x = 0.0;
     let mut angle_y = 0.0;
     let mut distance = 10.0;
+    let mut scale_x = 1.0;
+    let mut scale_y = 1.0;
+    let mut scale_z = 1.0;
+    let mut is_scale = false;
     while apt.main_loop() {
         hid.scan_input();
 
         if hid.keys_down().contains(KeyPad::START) {
             break;
         }
-        update_transform(hid.keys_held(), &mut angle_x, &mut angle_y, &mut distance);
+        if hid.keys_down().contains(KeyPad::A) {
+            is_scale = !is_scale;
+        }
+        update_transform(hid.keys_held(), &mut angle_x, &mut angle_y, &mut distance, &mut scale_x, &mut scale_y, &mut scale_z, is_scale);
 
 
         let fov = 40.0;
         let (left_eye, right_eye) = calculate_projections(fov, distance);
 
-        let model_view = calculate_model_view(angle_x, angle_y, distance);
+        let model_view = calculate_model_view(angle_x, angle_y, distance, scale_x, scale_y, scale_z);
 
         let targets = [
             (&mut top_left_target, left_eye),
@@ -185,32 +192,6 @@ fn create_render_pass<'l, 's, 'buf>(
         .with_vertex_uniforms(vertex_uniforms)
 }
 
-fn update_transform(keys_held: KeyPad, angle_x: &mut f32, angle_y: &mut f32, distance: &mut f32) {
-    if keys_held.contains(KeyPad::DPAD_RIGHT) {
-        *angle_y += 0.02;
-    }
-
-    if keys_held.contains(KeyPad::DPAD_LEFT) {
-        *angle_y -= 0.02;
-    }
-
-    if keys_held.contains(KeyPad::DPAD_UP) {
-        *angle_x -= 0.02;
-    }
-
-    if keys_held.contains(KeyPad::DPAD_DOWN) {
-        *angle_x += 0.02;
-    }
-
-    if keys_held.contains(KeyPad::R) {
-        *distance -= 0.1;
-    }
-
-    if keys_held.contains(KeyPad::L) {
-        *distance += 0.1;
-    }
-}
-
 fn calculate_projections(vertical_fov: f32, distance: f32) -> (Matrix4, Matrix4) {
     let slider_val = ctru::os::current_3d_slider_state();
     let interocular_distance = slider_val / 3.0;
@@ -233,11 +214,64 @@ fn calculate_projections(vertical_fov: f32, distance: f32) -> (Matrix4, Matrix4)
     (left_eye, right_eye)
 }
 
-fn calculate_model_view(angle_x: f32, angle_y: f32, distance: f32) -> Matrix4 {
+fn calculate_model_view(angle_x: f32, angle_y: f32, distance: f32, scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix4 {
     let mut model_view = Matrix4::identity();
+    model_view.scale(scale_x, scale_y, scale_z);
     model_view.rotate_x(angle_x);
     model_view.rotate_y(angle_y);
     model_view.translate(0.0, 0.0, -distance);
 
     model_view
+}
+
+fn update_transform(keys_held: KeyPad, angle_x: &mut f32, angle_y: &mut f32, distance: &mut f32, scale_x: &mut f32, scale_y: &mut f32, scale_z: &mut f32, change_scale: bool) {
+    if change_scale {
+        if keys_held.contains(KeyPad::DPAD_RIGHT) {
+            *scale_y += 0.02;
+        }
+
+        if keys_held.contains(KeyPad::DPAD_LEFT) {
+            *scale_y -= 0.02;
+        }
+
+        if keys_held.contains(KeyPad::DPAD_UP) {
+            *scale_x -= 0.02;
+        }
+
+        if keys_held.contains(KeyPad::DPAD_DOWN) {
+            *scale_x += 0.02;
+        }
+
+        if keys_held.contains(KeyPad::R) {
+            *scale_z -= 0.02;
+        }
+
+        if keys_held.contains(KeyPad::L) {
+            *scale_z += 0.02;
+        }
+    } else {
+        if keys_held.contains(KeyPad::DPAD_RIGHT) {
+            *angle_y += 0.02;
+        }
+
+        if keys_held.contains(KeyPad::DPAD_LEFT) {
+            *angle_y -= 0.02;
+        }
+
+        if keys_held.contains(KeyPad::DPAD_UP) {
+            *angle_x -= 0.02;
+        }
+
+        if keys_held.contains(KeyPad::DPAD_DOWN) {
+            *angle_x += 0.02;
+        }
+
+        if keys_held.contains(KeyPad::R) {
+            *distance -= 0.1;
+        }
+
+        if keys_held.contains(KeyPad::L) {
+            *distance += 0.1;
+        }
+    }
 }
