@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 ctru-rs = { git = "https://github.com/rust3ds/ctru-rs.git" }
 ctru-sys = { git = "https://github.com/rust3ds/ctru-rs.git" }
+citro3d = { git = "https://github.com/Bash-09/citro3d-rs.git" }
 
 
 [dependencies.bevy]
@@ -24,10 +25,10 @@ features = [
 #    "bevy_core_pipeline",
 #    "bevy_pbr",
 #    "bevy_gltf",
-    "bevy_render",
-    "bevy_sprite",
-    "bevy_text",
-    "bevy_ui",
+#    "bevy_render",
+#    "bevy_sprite",
+#    "bevy_text",
+#    "bevy_ui",
 #    "png",
 #    "hdr",
 #    "ktx2",
@@ -45,7 +46,3 @@ opt-level = 1
 
 [profile.dev]
 incremental = true
-
-[patch.crates-io]
-wgpu = { git = "https://github.com/Terpsichord/wgpu" }
-naga = { git = "https://github.com/Terpsichord/wgpu" }
