@@ -1,10 +1,10 @@
-use crate::vertices::{VERTICES, Vertex};
-use citro3d::{attrib, buffer, Frame, Instance, math::{Projection, Matrix4}, render::{self, ScreenTarget}, RenderPass, shader, uniform};
-use std::default::Default;
+use crate::vertices::{Vertex, VERTICES};
 use crate::Scene;
-
+use citro3d::{buffer, math::Matrix4, render::ScreenTarget, uniform, Frame, RenderPass};
+use std::{default::Default, iter};
 
 pub struct Entity {
+    #[allow(dead_code)]
     update_flag: bool,
     render_flag: bool,
 
@@ -12,7 +12,6 @@ pub struct Entity {
 
     transform: Transform,
 }
-
 
 pub struct Transform {
     pub angle_x: f32,
@@ -81,7 +80,14 @@ impl Entity {
         }
     }
 
-    pub fn render<'a>(&self, scene: &'a Scene, target: &'a ScreenTarget, projection: Matrix4, projection_uniform_idx: uniform::Index, frame: &mut Frame<'_, 'a>, model_uniform_idx: uniform::Index, view_uniform_idx: uniform::Index) {
+    pub fn render<'a>(
+        &self,
+        frame: &mut Frame<'_, 'a>,
+        target: &'a ScreenTarget,
+        scene: &'a Scene,
+        uniforms: impl IntoIterator<Item = (uniform::Index, Matrix4)>,
+        model_uniform_idx: uniform::Index,
+    ) {
         let mut buf_info = buffer::Info::new(buffer::Primitive::Triangles);
         let buffer_idx = buf_info.add(&self.vertex_list, &scene.attr_info).unwrap();
         let vbo_data = buf_info.buffer(buffer_idx).unwrap();
@@ -89,12 +95,9 @@ impl Entity {
         let pass = RenderPass::new(&scene.program, target, vbo_data, &scene.attr_info)
             .with_texenv_stages(&scene.texenv_stages)
             .with_lightenv(&scene.light_env)
-            .with_vertex_uniforms([
-                (projection_uniform_idx, projection.into()),
-                (model_uniform_idx, (&self.transform.model_matrix()).into()),
-                (view_uniform_idx, Matrix4::identity().into()),
-            ]);
-
+            .with_vertex_uniforms(uniforms.into_iter().map(|(i, mtx)| (i, mtx.into())).chain(
+                iter::once((model_uniform_idx, (&self.transform.model_matrix()).into())),
+            ));
 
         frame.draw(&pass).unwrap();
     }

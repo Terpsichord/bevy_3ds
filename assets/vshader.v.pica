@@ -1,75 +1,79 @@
-; Example PICA200 vertex shader
-
 ; Uniforms
 .fvec projection[4], model[4], view[4]
 
 ; Constants
-.constf myconst(0.0, 1.0, -1.0, 0.5)
-.alias  zeros myconst.xxxx ; Vector full of zeros
-.alias  ones  myconst.yyyy ; Vector full of ones
-.alias  half  myconst.wwww
+.constf const(0.0, 1.0, -1.0, 0.5)
+.alias  zeros const.xxxx
+.alias  ones  const.yyyy
+.alias  half  const.wwww
+
+; Inputs
+.alias inPos v0
+.alias inTex v1
+.alias inNor v2
 
 ; Outputs
-.out outpos position
-.out outtc0 texcoord0
-.out outclr color
-.out outview view
-.out outnq normalquat
-
-; Inputs (defined as aliases for convenience)
-.alias inpos v0
-.alias intex v1
-.alias innrm v2
+.out outPos  position
+.out outTc0  texcoord0
+.out outCol  color
+.out outView view
+.out outNq   normalquat
 
 .proc main
-    ; Model matrix
-    dp4 r0.x, model[0], inpos
-    dp4 r0.y, model[1], inpos
-    dp4 r0.z, model[2], inpos
-    dp4 r0.w, model[3], inpos
+    mov r0.xyz, inPos.xyz
+    mov r0.w, const.y ; w is always 1.0 for position
 
-    ; r1 = view * model
-    dp4 r1.x, view[0], r0
-    dp4 r1.y, view[1], r0
-    dp4 r1.z, view[2], r0
-    dp4 r1.w, view[3], r0
+    ; r1 = world-space position (model * r0)
+    dp4 r1.x, model[0], r0
+    dp4 r1.y, model[1], r0
+    dp4 r1.z, model[2], r0
+    dp4 r1.w, model[3], r0
 
-	; outview = -r1
-	mov outview, -r1
+    ; r2 = view-space position (view * r1)
+    dp4 r2.x, view[0], r1
+    dp4 r2.y, view[1], r1
+    dp4 r2.z, view[2], r1
+    dp4 r2.w, view[3], r1
 
-	; outpos = projection * r1
-	dp4 outpos.x, projection[0], r1
-	dp4 outpos.y, projection[1], r1
-	dp4 outpos.z, projection[2], r1
-	dp4 outpos.w, projection[3], r1
+    mov outView, -r2
 
-	; outtex = intex
-	mov outtc0, intex
+    ; output = clip-space position (projection * r2)
+    dp4 outPos.x, projection[0], r2
+    dp4 outPos.y, projection[1], r2
+    dp4 outPos.z, projection[2], r2
+    dp4 outPos.w, projection[3], r2
 
-	; Transform the normal vector with the modelView matrix
-	; TODO: use a separate normal matrix that is the transpose of the inverse of modelView
-	dp3 r14.x, r1.x, innrm
-	dp3 r14.y, r1.y, innrm
-	dp3 r14.z, r1.z, innrm
-	dp3 r6.x, r14, r14
-	rsq r6.x, r6.x
-	mul r14.xyz, r14.xyz, r6.x
+    mov outTc0, inTex
 
-	mov r0, myconst.yxxx
-	add r4, ones, r14.z
-	mul r4, half, r4
-	cmp zeros, ge, ge, r4.x
-	rsq r4, r4.x
-	mul r5, half, r14
-	jmpc cmp.x, degenerate
+    ; Transform the normal vector with the model matrix
+    ; TODO: use a separate normal matrix that is the transpose of the inverse of modelView
 
-	rcp r0.z, r4.x
-	mul r0.xy, r5, r4
+    ; r0 = world-space normal
+    dp3 r0.x, model[0], inNor
+    dp3 r0.y, model[1], inNor
+    dp3 r0.z, model[2], inNor
+
+    ; r1.x = 1 / sqrt((length of normal)^2)
+    dp3 r1.x, r0, r0
+    rsq r1.x, r1.x
+
+    ; r0 = normalized normal (normal * (1 / length of normal))
+    mul r0.xyz, r0.xyz, r1.x
+
+    mov r1, const.yxxx      ; r1 = (1,0,0,0)
+    add r2, ones, r0.z      ; r2 = 1 + normal.z
+    mul r2, half, r2        ; r2 = 0.5 * (1 + normal.z)
+    cmp zeros, ge, ge, r2.x ; cmp.x = (0 >= 0.5 * (1 + normal.z))
+    rsq r2, r2.x            ; r2 = 1 / sqrt(0.5 * (1 + normal.z))
+    mul r3, half, r0        ; r3 = 0.5 * normal
+    jmpc cmp.x, degenerate  ; if cmp.x, go to degenerate
+
+    rcp r1.z, r2.x          ; r1.z = sqrt(0.5 * (1 + normal.z))
+    mul r1.xy, r3, r2       ; r1.xy = 0.5 * normal / sqrt(0.5 * (1 + normal.z))
 
 degenerate:
-	mov outnq, r0
-	mov outclr, ones
+    mov outNq, r1
+    mov outCol, ones
 
-	; We're finished
-	end
+    end
 .end

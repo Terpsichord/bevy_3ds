@@ -10,26 +10,25 @@ use bevy::{
     prelude::*,
 };
 use ctru::applets::error;
-use ctru::services::gfx::Gfx;
 use ctru::prelude::Console;
-
+use ctru::services::gfx::Gfx;
 
 fn main() {
     error::set_panic_hook(false);
 
     App::new()
         // Add default bevy_3ds plugins
-        .add_plugins((
-            bevy_3ds::DefaultPlugins
-                // Configure logging to debug level
-                .set(log::LogPlugin {
-                    level: log::Level::DEBUG,
-                    ..default()
-                }),
-        ))
-        .add_systems(Update, (exit_on_start, gamepad_events, gamepad_ordered_events).chain())
+        .add_plugins((bevy_3ds::DefaultPlugins
+            // Configure logging to debug level
+            .set(log::LogPlugin {
+                level: log::Level::DEBUG,
+                ..default()
+            }),))
+        .add_systems(
+            Update,
+            (exit_on_start, gamepad_events, gamepad_ordered_events).chain(),
+        )
         .run();
-
 }
 
 fn gamepad_events(
@@ -44,7 +43,6 @@ fn gamepad_events(
     // this event is emitted.
     mut button_input_events: EventReader<GamepadButtonInput>,
 ) {
-
     for connection_event in connection_events.read() {
         info!("{:?}", connection_event);
     }
@@ -83,8 +81,14 @@ fn gamepad_ordered_events(mut gamepad_events: EventReader<GamepadEvent>, gfx: No
     }
 }
 
-fn exit_on_start(button_inputs: Res<ButtonInput<GamepadButton>>, mut exit_events: EventWriter<AppExit>) {
-    if button_inputs.just_pressed(GamepadButton::new(bevy_3ds::input::GAMEPAD, GamepadButtonType::Start)) {
+fn exit_on_start(
+    button_inputs: Res<ButtonInput<GamepadButton>>,
+    mut exit_events: EventWriter<AppExit>,
+) {
+    if button_inputs.just_pressed(GamepadButton::new(
+        bevy_3ds::input::GAMEPAD,
+        GamepadButtonType::Start,
+    )) {
         exit_events.send(AppExit::Success);
     }
 }

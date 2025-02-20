@@ -6,7 +6,6 @@ pub struct Vec3 {
     z: f32,
 }
 
-
 impl Vec3 {
     const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
@@ -33,7 +32,6 @@ pub struct Vertex {
     tex_coord: Vec2,
     normal: Vec3,
 }
-
 
 pub static VERTICES: &[Vertex] = &[
     // First face (PZ)
@@ -68,7 +66,6 @@ pub static VERTICES: &[Vertex] = &[
         tex_coord: Vec2::new(0.0, 0.0),
         normal: Vec3::new(0.0, 0.0, 1.0),
     },
-
     // Second face (MZ)
     // First triangle
     Vertex {
@@ -101,7 +98,6 @@ pub static VERTICES: &[Vertex] = &[
         tex_coord: Vec2::new(0.0, 0.0),
         normal: Vec3::new(0.0, 0.0, -1.0),
     },
-
     // Third face (PX)
     // First triangle
     Vertex {
@@ -134,7 +130,6 @@ pub static VERTICES: &[Vertex] = &[
         tex_coord: Vec2::new(0.0, 0.0),
         normal: Vec3::new(1.0, 0.0, 0.0),
     },
-
     // Fourth face (MX)
     // First triangle
     Vertex {
@@ -167,7 +162,6 @@ pub static VERTICES: &[Vertex] = &[
         tex_coord: Vec2::new(0.0, 0.0),
         normal: Vec3::new(-1.0, 0.0, 0.0),
     },
-
     // Fifth face (PY)
     // First triangle
     Vertex {
@@ -200,7 +194,6 @@ pub static VERTICES: &[Vertex] = &[
         tex_coord: Vec2::new(0.0, 0.0),
         normal: Vec3::new(0.0, 1.0, 0.0),
     },
-
     // Sixth face (MY)
     // First triangle
     Vertex {

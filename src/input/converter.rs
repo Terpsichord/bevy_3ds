@@ -64,5 +64,4 @@ pub fn convert_key(key: KeyPad) -> ConvertedKey {
 
         _ => unreachable!(),
     }
-
 }

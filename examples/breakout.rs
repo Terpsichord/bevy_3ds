@@ -55,7 +55,7 @@ fn main() {
     App::new()
         .add_plugins(
             // Add default bevy_3ds plugins
-            bevy_3ds::DefaultPlugins
+            bevy_3ds::DefaultPlugins,
         )
         .insert_resource(Score(0))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
@@ -65,11 +65,7 @@ fn main() {
         // which runs at 64 Hz by default
         .add_systems(
             FixedUpdate,
-            (
-                apply_velocity,
-                move_paddle,
-                check_for_collisions,
-            )
+            (apply_velocity, move_paddle, check_for_collisions)
                 // `chain`ing systems together runs them in order
                 .chain(),
         )
@@ -188,7 +184,6 @@ fn setup(
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
-
     commands.spawn((
         SpriteBundle {
             transform: Transform {
@@ -237,12 +232,12 @@ fn setup(
                 ..default()
             }),
         ])
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                top: SCOREBOARD_TEXT_PADDING,
-                left: SCOREBOARD_TEXT_PADDING,
-                ..default()
-            }),
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: SCOREBOARD_TEXT_PADDING,
+            left: SCOREBOARD_TEXT_PADDING,
+            ..default()
+        }),
     ));
 
     // Walls

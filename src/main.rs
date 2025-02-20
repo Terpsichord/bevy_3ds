@@ -4,19 +4,17 @@ static SHADER_BYTES: &[u8] = include_shader!("../assets/vshader.v.pica");
 
 const CLEAR_COLOR: u32 = 0x68_B0_D8_FF;
 
-use std::pin::{Pin, pin};
 use std::boxed::Box;
+use std::pin::Pin;
 
 use citro3d::{
     attrib,
-    buffer::{self},
     light::{self, LightEnv, LightLut, LightLutId, LutInput},
+    macros::include_shader,
     material::{Color, Material},
     math::{AspectRatio, ClipPlanes, FVec3, Matrix4, Projection, StereoDisplacement},
-    macros::include_shader,
     render::{self, ClearFlags, Target},
-    shader, texenv, RenderPass,
-    uniform::{self, Uniform},
+    shader, texenv,
 };
 use ctru::services::{
     apt::Apt,
@@ -25,13 +23,11 @@ use ctru::services::{
     soc::Soc,
 };
 
-
 mod entity;
 mod vertices;
 
+use entity::{Entity, Transform};
 use vertices::*;
-use entity::{Transform, Entity};
-
 
 fn main() {
     let mut soc = Soc::new().expect("failed to get SOC");
@@ -41,14 +37,23 @@ fn main() {
     let apt = Apt::new().expect("Couldn't obtain APT controller");
 
     let mut entities = [
-        Entity::new(VERTICES).with_transform(Transform { pos_x: 2.0, pos_z: -10.0, ..Default::default() }),
-        Entity::new(VERTICES).with_transform(Transform { pos_x: -2.0, pos_z: -10.0, ..Default::default() }),
+        Entity::new(VERTICES).with_transform(Transform {
+            pos_x: 2.0,
+            pos_z: -10.0,
+            ..Default::default()
+        }),
+        Entity::new(VERTICES).with_transform(Transform {
+            pos_x: -2.0,
+            pos_z: -10.0,
+            ..Default::default()
+        }),
     ];
 
     let gfx = Gfx::with_formats_shared(
         ctru::services::gspgpu::FramebufferFormat::Rgba8,
         ctru::services::gspgpu::FramebufferFormat::Rgba8,
-    ).expect("Couldn't obtain GFX controller");
+    )
+    .expect("Couldn't obtain GFX controller");
 
     let mut instance = citro3d::Instance::new().expect("failed to initialize Citro3D");
 
@@ -58,20 +63,29 @@ fn main() {
 
     let RawFrameBuffer { width, height, .. } = top_left.raw_framebuffer();
     let mut top_left_target = instance
-        .render_target(width, height, top_left, Some(render::DepthFormat::Depth24Stencil8))
+        .render_target(
+            width,
+            height,
+            top_left,
+            Some(render::DepthFormat::Depth24Stencil8),
+        )
         .expect("failed to create render target");
 
     let RawFrameBuffer { width, height, .. } = top_right.raw_framebuffer();
     let mut top_right_target = instance
-        .render_target(width, height, top_right, Some(render::DepthFormat::Depth24Stencil8))
+        .render_target(
+            width,
+            height,
+            top_right,
+            Some(render::DepthFormat::Depth24Stencil8),
+        )
         .expect("failed to create render target");
 
     let scene = init_scene();
 
-    let projection_uniform_idx = scene.program.get_uniform("projection").unwrap();
+    let projection_idx = scene.program.get_uniform("projection").unwrap();
     let model_uniform_idx = scene.program.get_uniform("model").unwrap();
-    let view_uniform_idx = scene.program.get_uniform("view").unwrap();
-
+    let view_idx = scene.program.get_uniform("view").unwrap();
 
     let mut is_scale = false;
     let mut delta_bumper = 0;
@@ -123,7 +137,8 @@ fn main() {
             entities[selected_entity].toggle_render();
         }
 
-        entities[selected_entity].update_transform((delta_touch.0, delta_touch.1, delta_bumper), is_scale);
+        entities[selected_entity]
+            .update_transform((delta_touch.0, delta_touch.1, delta_bumper), is_scale);
         delta_touch = (0, 0);
         delta_bumper = 0;
 
@@ -141,13 +156,14 @@ fn main() {
                 target.clear(ClearFlags::ALL, CLEAR_COLOR, 0);
                 for entity in entities.iter_mut() {
                     entity.render(
-                        &scene,
-                        target,
-                        projection,
-                        projection_uniform_idx,
                         frame,
+                        target,
+                        &scene,
+                        [
+                            (projection_idx, projection),
+                            (view_idx, Matrix4::identity()),
+                        ],
                         model_uniform_idx,
-                        view_uniform_idx,
                     )
                 }
             }

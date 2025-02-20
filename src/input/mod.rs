@@ -1,7 +1,7 @@
 //! Input handling for the 3DS. The device is treated as a single gamepad and
 //! sends native Bevy gamepad events for use with Bevy's [`InputSystem`].
 
-use crate::input::converter::{ConvertedKey, convert_key};
+use crate::input::converter::{convert_key, ConvertedKey};
 use bevy::input::gamepad::{
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
     GamepadEvent, GamepadInfo,
