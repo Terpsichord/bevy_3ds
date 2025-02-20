@@ -7,6 +7,7 @@ const CLEAR_COLOR: u32 = 0x68_B0_D8_FF;
 use std::boxed::Box;
 use std::ops::ControlFlow;
 use std::pin::Pin;
+use std::f32::consts::PI;
 
 use citro3d::{
     attrib,
@@ -25,10 +26,12 @@ use ctru::services::{
 };
 
 mod entity;
+mod player;
 mod vertices;
 
 use entity::{Entity, Transform};
 use vertices::*;
+use player::Player;
 
 struct App {
     is_scale: bool,
@@ -36,18 +39,20 @@ struct App {
     touch_pos: (u16, u16),
     delta_touch: (i16, i16),
 
+    player: Player,
     entities: Vec<Entity>,
     selected_entity: usize,
 }
 
 impl App {
-    fn with_entities(entities: impl IntoIterator<Item = Entity>) -> Self {
+    fn new(player: Player, entities: impl IntoIterator<Item = Entity>) -> Self {
         Self {
             is_scale: false,
             delta_bumper: 0,
             touch_pos: (0, 0),
             delta_touch: (0, 0),
 
+            player,
             entities: entities.into_iter().collect(),
             selected_entity: 0,
         }
@@ -97,8 +102,11 @@ impl App {
             self.is_scale,
         );
 
+        self.player.update(hid);
+
         self.delta_touch = (0, 0);
         self.delta_bumper = 0;
+
 
         ControlFlow::Continue(())
     }
@@ -111,19 +119,20 @@ impl App {
     ) {
         let fov = 40.0;
         let screen_depth = 2.0;
-        let (left_eye, right_eye) = calculate_projections(fov, screen_depth);
 
-        let targets = [(targets.0, left_eye), (targets.1, right_eye)];
+        let (left_eye, right_eye) = calculate_projections(fov, screen_depth);
+        let view = self.player.calculate_view();
 
         let [projection_idx, model_idx, view_idx] = get_uniform_indexes(&scene.program);
 
+        let targets = [(targets.0, left_eye), (targets.1, right_eye)];
         instance.render_frame_with(|frame| {
             for (target, projection) in targets {
                 target.clear(ClearFlags::ALL, CLEAR_COLOR, 0);
 
                 let uniforms = [
                     (projection_idx, projection),
-                    (view_idx, Matrix4::identity()),
+                    (view_idx, view),
                 ];
 
                 for entity in self.entities.iter_mut() {
@@ -137,18 +146,18 @@ impl App {
 fn main() {
     let (mut hid, apt, gfx) = init_services();
 
-    let mut app = App::with_entities([
+    let entities = (0..5).map(|i: u32| {
+        let angle = i as f32 * (2.0 * PI) / 5.0;
         Entity::new(VERTICES).with_transform(Transform {
-            pos_x: 2.0,
-            pos_z: -10.0,
+            pos_x: angle.cos() * 5.0,
+            pos_z: angle.sin() * 5.0,
             ..Default::default()
-        }),
-        Entity::new(VERTICES).with_transform(Transform {
-            pos_x: -2.0,
-            pos_z: -10.0,
-            ..Default::default()
-        }),
-    ]);
+        })
+    });
+
+    let player = Player::new(0.2, 4.0);
+
+    let mut app = App::new(player, entities);
 
     let mut instance = citro3d::Instance::new().expect("failed to initialize Citro3D");
 
