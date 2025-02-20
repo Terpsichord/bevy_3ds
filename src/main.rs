@@ -5,6 +5,7 @@ static SHADER_BYTES: &[u8] = include_shader!("../assets/vshader.v.pica");
 const CLEAR_COLOR: u32 = 0x68_B0_D8_FF;
 
 use std::boxed::Box;
+use std::ops::ControlFlow;
 use std::pin::Pin;
 
 use citro3d::{
@@ -13,8 +14,8 @@ use citro3d::{
     macros::include_shader,
     material::{Color, Material},
     math::{AspectRatio, ClipPlanes, FVec3, Matrix4, Projection, StereoDisplacement},
-    render::{self, ClearFlags, Target},
-    shader, texenv,
+    render::{self, ClearFlags, ScreenTarget, Target},
+    shader, texenv, uniform,
 };
 use ctru::services::{
     apt::Apt,
@@ -29,14 +30,114 @@ mod vertices;
 use entity::{Entity, Transform};
 use vertices::*;
 
+struct App {
+    is_scale: bool,
+    delta_bumper: i16,
+    touch_pos: (u16, u16),
+    delta_touch: (i16, i16),
+
+    entities: Vec<Entity>,
+    selected_entity: usize,
+}
+
+impl App {
+    fn with_entities(entities: impl IntoIterator<Item = Entity>) -> Self {
+        Self {
+            is_scale: false,
+            delta_bumper: 0,
+            touch_pos: (0, 0),
+            delta_touch: (0, 0),
+
+            entities: entities.into_iter().collect(),
+            selected_entity: 0,
+        }
+    }
+
+    fn update(&mut self, hid: &Hid) -> ControlFlow<()> {
+        if hid.keys_down().contains(KeyPad::START) {
+            return ControlFlow::Break(());
+        }
+        if hid.keys_down().contains(KeyPad::A) {
+            self.is_scale = !self.is_scale;
+        }
+
+        if hid.keys_down().contains(KeyPad::TOUCH) {
+            self.touch_pos = hid.touch_position();
+        } else if hid.keys_held().contains(KeyPad::TOUCH) {
+            let old_pos = self.touch_pos;
+            self.touch_pos = hid.touch_position();
+            self.delta_touch.0 = self.touch_pos.0 as i16 - old_pos.0 as i16;
+            self.delta_touch.1 = self.touch_pos.1 as i16 - old_pos.1 as i16;
+        }
+
+        if hid.keys_held().contains(KeyPad::L) {
+            self.delta_bumper -= 1;
+        }
+        if hid.keys_held().contains(KeyPad::R) {
+            self.delta_bumper += 1;
+        }
+
+        if hid.keys_down().contains(KeyPad::DPAD_RIGHT) {
+            self.selected_entity = (self.selected_entity + 1) % self.entities.len();
+        }
+        if hid.keys_down().contains(KeyPad::DPAD_LEFT) {
+            if self.selected_entity == 0 {
+                self.selected_entity = self.entities.len() - 1;
+            } else {
+                self.selected_entity -= 1;
+            }
+        }
+
+        if hid.keys_held().contains(KeyPad::B) {
+            self.entities[self.selected_entity].toggle_render();
+        }
+
+        self.entities[self.selected_entity].update_transform(
+            (self.delta_touch.0, self.delta_touch.1, self.delta_bumper),
+            self.is_scale,
+        );
+
+        self.delta_touch = (0, 0);
+        self.delta_bumper = 0;
+
+        ControlFlow::Continue(())
+    }
+
+    fn render<'a>(
+        &mut self,
+        instance: &mut citro3d::Instance,
+        targets: (&mut ScreenTarget<'a>, &mut ScreenTarget<'a>),
+        scene: &Scene,
+    ) {
+        let fov = 40.0;
+        let screen_depth = 2.0;
+        let (left_eye, right_eye) = calculate_projections(fov, screen_depth);
+
+        let targets = [(targets.0, left_eye), (targets.1, right_eye)];
+
+        let [projection_idx, model_idx, view_idx] = get_uniform_indexes(&scene.program);
+
+        instance.render_frame_with(|frame| {
+            for (target, projection) in targets {
+                target.clear(ClearFlags::ALL, CLEAR_COLOR, 0);
+
+                let uniforms = [
+                    (projection_idx, projection),
+                    (view_idx, Matrix4::identity()),
+                ];
+
+                for entity in self.entities.iter_mut() {
+                    entity.render(frame, target, scene, uniforms, model_idx)
+                }
+            }
+        });
+    }
+}
+
 fn main() {
-    let mut soc = Soc::new().expect("failed to get SOC");
-    drop(soc.redirect_to_3dslink(true, true));
+    let (mut hid, apt, gfx) = init_services();
 
-    let mut hid = Hid::new().expect("Couldn't obtain HID controller");
-    let apt = Apt::new().expect("Couldn't obtain APT controller");
-
-    let mut entities = [
+    let mut app = App::with_entities([
         Entity::new(VERTICES).with_transform(Transform {
             pos_x: 2.0,
             pos_z: -10.0,
@@ -47,18 +148,11 @@ fn main() {
             pos_z: -10.0,
             ..Default::default()
         }),
-    ];
-
-    let gfx = Gfx::with_formats_shared(
-        ctru::services::gspgpu::FramebufferFormat::Rgba8,
-        ctru::services::gspgpu::FramebufferFormat::Rgba8,
-    )
-    .expect("Couldn't obtain GFX controller");
+    ]);
 
     let mut instance = citro3d::Instance::new().expect("failed to initialize Citro3D");
 
     let top_screen = TopScreen3D::from(&gfx.top_screen);
-
     let (mut top_left, mut top_right) = top_screen.split_mut();
 
     let RawFrameBuffer { width, height, .. } = top_left.raw_framebuffer();
@@ -83,91 +177,19 @@ fn main() {
 
     let scene = init_scene();
 
-    let projection_idx = scene.program.get_uniform("projection").unwrap();
-    let model_uniform_idx = scene.program.get_uniform("model").unwrap();
-    let view_idx = scene.program.get_uniform("view").unwrap();
-
-    let mut is_scale = false;
-    let mut delta_bumper = 0;
-
-    let mut touch_pos = (0, 0);
-    let mut delta_touch = (0, 0);
-
-    let mut selected_entity = 0;
     while apt.main_loop() {
         hid.scan_input();
 
-        if hid.keys_down().contains(KeyPad::START) {
-            break;
-        }
-        if hid.keys_down().contains(KeyPad::A) {
-            is_scale = !is_scale;
+        match app.update(&hid) {
+            ControlFlow::Break(_) => break,
+            ControlFlow::Continue(_) => {}
         }
 
-        if hid.keys_down().contains(KeyPad::TOUCH) {
-            touch_pos = hid.touch_position();
-        } else if hid.keys_held().contains(KeyPad::TOUCH) {
-            let old_pos = touch_pos;
-            touch_pos = hid.touch_position();
-            delta_touch.0 = touch_pos.0 as i16 - old_pos.0 as i16;
-            delta_touch.1 = touch_pos.1 as i16 - old_pos.1 as i16;
-        }
-
-        if hid.keys_held().contains(KeyPad::L) {
-            delta_bumper -= 1;
-        }
-        if hid.keys_held().contains(KeyPad::R) {
-            delta_bumper += 1;
-        }
-
-        if hid.keys_down().contains(KeyPad::DPAD_RIGHT) {
-            selected_entity = (selected_entity + 1) % entities.len();
-            println!("Selected entity {}", selected_entity);
-        }
-        if hid.keys_down().contains(KeyPad::DPAD_LEFT) {
-            if selected_entity == 0 {
-                selected_entity = entities.len() - 1;
-            } else {
-                selected_entity -= 1;
-            }
-            println!("Selected entity {}", selected_entity);
-        }
-
-        if hid.keys_held().contains(KeyPad::B) {
-            entities[selected_entity].toggle_render();
-        }
-
-        entities[selected_entity]
-            .update_transform((delta_touch.0, delta_touch.1, delta_bumper), is_scale);
-        delta_touch = (0, 0);
-        delta_bumper = 0;
-
-        let fov = 40.0;
-        let screen_depth = 2.0;
-        let (left_eye, right_eye) = calculate_projections(fov, screen_depth);
-
-        let targets = [
-            (&mut top_left_target, left_eye),
-            (&mut top_right_target, right_eye),
-        ];
-
-        instance.render_frame_with(|frame| {
-            for (target, projection) in targets {
-                target.clear(ClearFlags::ALL, CLEAR_COLOR, 0);
-                for entity in entities.iter_mut() {
-                    entity.render(
-                        frame,
-                        target,
-                        &scene,
-                        [
-                            (projection_idx, projection),
-                            (view_idx, Matrix4::identity()),
-                        ],
-                        model_uniform_idx,
-                    )
-                }
-            }
-        });
+        app.render(
+            &mut instance,
+            (&mut top_left_target, &mut top_right_target),
+            &scene,
+        );
     }
 }
 
@@ -176,6 +198,22 @@ struct Scene {
     attr_info: attrib::Info,
     light_env: Pin<Box<LightEnv>>,
     texenv_stages: Vec<texenv::TexEnv>,
+}
+
+fn init_services() -> (Hid, Apt, Gfx) {
+    let mut soc = Soc::new().expect("failed to get SOC");
+    drop(soc.redirect_to_3dslink(true, true));
+
+    let hid = Hid::new().expect("Couldn't obtain HID controller");
+    let apt = Apt::new().expect("Couldn't obtain APT controller");
+
+    let gfx = Gfx::with_formats_shared(
+        ctru::services::gspgpu::FramebufferFormat::Rgba8,
+        ctru::services::gspgpu::FramebufferFormat::Rgba8,
+    )
+    .expect("Couldn't obtain GFX controller");
+
+    (hid, apt, gfx)
 }
 
 fn init_scene() -> Scene {
@@ -226,6 +264,14 @@ fn init_scene() -> Scene {
         light_env,
         texenv_stages: vec![stage0],
     }
+}
+
+fn get_uniform_indexes(program: &shader::Program) -> [uniform::Index; 3] {
+    [
+        program.get_uniform("projection").unwrap(),
+        program.get_uniform("model").unwrap(),
+        program.get_uniform("view").unwrap(),
+    ]
 }
 
 fn calculate_projections(vertical_fov: f32, screen_depth: f32) -> (Matrix4, Matrix4) {
