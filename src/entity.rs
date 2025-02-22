@@ -1,7 +1,6 @@
 use crate::vertices::{Vertex, VERTICES};
-use crate::Scene;
-use citro3d::{buffer, math::Matrix4, render::ScreenTarget, uniform, Frame, RenderPass};
-use std::{default::Default, iter};
+use citro3d::{attrib, buffer, math::Matrix4, uniform};
+use std::default::Default;
 
 pub struct Entity {
     #[allow(dead_code)]
@@ -80,26 +79,14 @@ impl Entity {
         }
     }
 
-    pub fn render<'a>(
-        &self,
-        frame: &mut Frame<'_, 'a>,
-        target: &'a ScreenTarget,
-        scene: &'a Scene,
-        uniforms: impl IntoIterator<Item = (uniform::Index, Matrix4)>,
-        model_uniform_idx: uniform::Index,
-    ) {
+    pub fn render<'a>(&self, instance: &mut citro3d::Instance, attr_info: &attrib::Info, model_uniform_idx: uniform::Index) {
+        instance.bind_vertex_uniform(model_uniform_idx, self.transform.model_matrix());
+
         let mut buf_info = buffer::Info::new(buffer::Primitive::Triangles);
-        let buffer_idx = buf_info.add(&self.vertex_list, &scene.attr_info).unwrap();
+        let buffer_idx = buf_info.add(&self.vertex_list, attr_info).unwrap();
         let vbo_data = buf_info.buffer(buffer_idx).unwrap();
 
-        let pass = RenderPass::new(&scene.program, target, vbo_data, &scene.attr_info)
-            .with_texenv_stages(&scene.texenv_stages)
-            .with_lightenv(&scene.light_env)
-            .with_vertex_uniforms(uniforms.into_iter().map(|(i, mtx)| (i, mtx.into())).chain(
-                iter::once((model_uniform_idx, (&self.transform.model_matrix()).into())),
-            ));
-
-        frame.draw(&pass).unwrap();
+        instance.draw(vbo_data);
     }
 
     pub fn toggle_render(&mut self) {

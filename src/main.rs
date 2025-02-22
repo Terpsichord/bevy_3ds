@@ -135,8 +135,40 @@ impl App {
                     (view_idx, view),
                 ];
 
+                unsafe {
+                    frame.instance.bind_program(&scene.program);
+                    frame.instance.select_render_target(target).unwrap();
+
+                    // Uniforms
+                    frame.instance.set_attr_info(&scene.attr_info);
+
+                    for &(index, uniform) in uniforms.iter() {
+                        frame.instance.bind_vertex_uniform(index, uniform);
+                    }
+
+                    // Texenvs
+                    let TEXENV_COUNT: usize = 6;
+                    for i in 0..TEXENV_COUNT {
+                        if let Some(texenv) = scene.texenv_stages.get(i) {
+                            texenv
+                                .set_texenv(i)
+                                .expect("Texenv stage should always be in bounds");
+                        } else {
+                            let texenv = citro3d_sys::C3D_GetTexEnv(i as i32);
+                            if !texenv.is_null() {
+                                citro3d_sys::C3D_TexEnvInit(texenv);
+                                citro3d_sys::C3D_DirtyTexEnv(texenv);
+                            }
+                        }
+                    }
+
+                    // Light env
+                    let lightenv: *mut citro3d_sys::C3D_LightEnv = scene.light_env.as_raw() as *const _ as *mut _;
+                    citro3d_sys::C3D_LightEnvBind(lightenv);
+                }
+
                 for entity in self.entities.iter_mut() {
-                    entity.render(frame, target, scene, uniforms, model_idx)
+                    entity.render(&mut frame.instance, &scene.attr_info, model_idx);
                 }
             }
         });
@@ -146,8 +178,9 @@ impl App {
 fn main() {
     let (mut hid, apt, gfx) = init_services();
 
-    let entities = (0..5).map(|i: u32| {
-        let angle = i as f32 * (2.0 * PI) / 5.0;
+    let n = 10;
+    let entities = (0..n).map(|i: u32| {
+        let angle = i as f32 * (2.0 * PI) / (n as f32);
         Entity::new(VERTICES).with_transform(Transform {
             pos_x: angle.cos() * 5.0,
             pos_z: angle.sin() * 5.0,

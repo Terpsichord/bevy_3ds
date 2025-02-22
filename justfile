@@ -23,3 +23,6 @@ cp:
 cp-example EXAMPLE:
     cargo 3ds build --example {{EXAMPLE}}
     cp target/armv6k-nintendo-3ds/debug/examples/{{EXAMPLE}}.3dsx /mnt/c/Users/$USER/3dsx/
+
+clippy:
+    cargo 3ds clippy
