@@ -6,6 +6,7 @@ use bevy::input::gamepad::{
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
     GamepadEvent, GamepadInfo,
 };
+use bevy::input::touch::{TouchInput, TouchPhase};
 use bevy::prelude::*;
 use ctru::services::hid::{Hid, KeyPad};
 
@@ -34,7 +35,7 @@ impl Plugin for InputPlugin {
             .add_systems(PreStartup, gamepad_startup_system)
             .add_systems(
                 PreUpdate,
-                gamepad_update_system.before(bevy::input::InputSystem),
+                (input_update_system).before(bevy::input::InputSystem),
             );
     }
 }
@@ -51,45 +52,54 @@ fn gamepad_startup_system(mut events: EventWriter<GamepadEvent>) {
     );
 }
 
-fn gamepad_update_system(mut hid: NonSendMut<GamepadInput>, mut events: EventWriter<GamepadEvent>) {
+fn input_update_system(mut hid: NonSendMut<GamepadInput>, mut gamepad_events: EventWriter<GamepadEvent>, mut touch_events: EventWriter<TouchInput>) {
     hid.0.scan_input();
 
-    for key in hid.0.keys_down().iter() {
-        if let Some(event) = create_input_event(GAMEPAD, key, true) {
-            events.send(event);
+    for (keys, pressed) in [(hid.0.keys_down(), true), (hid.0.keys_up(), false)] {
+        for key in keys {
+            if key == KeyPad::TOUCH {
+                let position = hid.0.touch_position();
+                let phase = if pressed { TouchPhase::Started } else { TouchPhase::Ended };
+                touch_events.send(create_touch_input(position, phase));
+            } else {
+                gamepad_events.send(create_gamepad_event(GAMEPAD, key, pressed));
+            }
         }
     }
 
-    // TODO: should we even bother sending events for keys_held() ?
-    for key in hid.0.keys_held().iter() {
-        if let Some(event) = create_input_event(GAMEPAD, key, true) {
-            events.send(event);
-        }
-    }
-
-    for key in hid.0.keys_up() {
-        if let Some(event) = create_input_event(GAMEPAD, key, false) {
-            events.send(event);
-        }
+    // Touch moved
+    if hid.0.keys_held().contains(KeyPad::TOUCH) & !hid.0.keys_down().contains(KeyPad::TOUCH) {
+        touch_events.send(create_touch_input(hid.0.touch_position(), TouchPhase::Moved));
     }
 }
 
-fn create_input_event(gamepad: Gamepad, key: KeyPad, pressed: bool) -> Option<GamepadEvent> {
+fn create_gamepad_event(gamepad: Gamepad, key: KeyPad, pressed: bool) -> GamepadEvent {
     match convert_key(key) {
         ConvertedKey::Axis(axis) => {
             let value = if pressed { axis.sign } else { 0.0 };
-            Some(GamepadEvent::Axis(GamepadAxisChangedEvent::new(
+            GamepadEvent::Axis(GamepadAxisChangedEvent::new(
                 gamepad,
                 axis.axis_type,
                 value,
-            )))
+            ))
         }
         ConvertedKey::Button(button) => {
             // We don't get analog button input, so use "binary" values for press/unpress values.
             let value = if pressed { 1.0 } else { 0.0 };
-            Some(GamepadEvent::Button(GamepadButtonChangedEvent::new(
+            GamepadEvent::Button(GamepadButtonChangedEvent::new(
                 gamepad, button, value,
-            )))
+            ))
         }
+    }
+}
+
+
+fn create_touch_input(position: (u16, u16), phase: TouchPhase) -> TouchInput {
+    TouchInput {
+        phase,
+        position: Vec2::new(position.0 as f32, position.1 as f32),
+        window: Entity::PLACEHOLDER,
+        force: None,
+        id: 0,
     }
 }

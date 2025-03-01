@@ -62,6 +62,7 @@ pub fn convert_key(key: KeyPad) -> ConvertedKey {
         KeyPad::ZL => ConvertedKey::Button(GamepadButtonType::LeftTrigger2),
         KeyPad::ZR => ConvertedKey::Button(GamepadButtonType::RightTrigger2),
 
+        KeyPad::TOUCH => panic!("cannot convert touch input"),
         _ => unreachable!(),
     }
 }

@@ -235,13 +235,6 @@ fn main() {
     }
 }
 
-struct Scene {
-    program: shader::Program,
-    attr_info: attrib::Info,
-    light_env: Pin<Box<LightEnv>>,
-    texenv_stages: Vec<texenv::TexEnv>,
-}
-
 fn init_services() -> (Hid, Apt, Gfx) {
     let mut soc = Soc::new().expect("failed to get SOC");
     drop(soc.redirect_to_3dslink(true, true));
@@ -257,6 +250,14 @@ fn init_services() -> (Hid, Apt, Gfx) {
 
     (hid, apt, gfx)
 }
+
+struct Scene {
+    program: shader::Program,
+    attr_info: attrib::Info,
+    light_env: Pin<Box<LightEnv>>,
+    texenv_stages: Vec<texenv::TexEnv>,
+}
+
 
 fn init_scene() -> Scene {
     let shader = shader::Library::from_bytes(SHADER_BYTES).unwrap();

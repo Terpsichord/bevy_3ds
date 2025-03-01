@@ -21,7 +21,8 @@ impl Plugin for CorePlugin {
             // and make sure these are scheduled correctly
             .add_systems(First, exit_system)
             // run gfx flush after all other stages
-            .add_systems(Last, flush_gfx);
+           // .add_systems(Last, flush_gfx);
+        ;
     }
 }
 

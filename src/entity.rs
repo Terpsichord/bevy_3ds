@@ -1,4 +1,4 @@
-use crate::vertices::{Vertex, VERTICES};
+use crate::vertices::Vertex;
 use citro3d::{attrib, buffer, math::Matrix4, uniform};
 use std::default::Default;
 
@@ -52,7 +52,7 @@ impl Transform {
 impl Entity {
     pub fn new(vertex_list: &[Vertex]) -> Self {
         let mut vbo_data = Vec::with_capacity_in(vertex_list.len(), ctru::linear::LinearAllocator);
-        vbo_data.extend_from_slice(VERTICES);
+        vbo_data.extend_from_slice(vertex_list);
 
         Self {
             update_flag: true,

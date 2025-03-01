@@ -1,10 +1,14 @@
 #![doc = include_str!("../README.md")]
+#![feature(allocator_api)]
+
 
 use bevy::app::{PluginGroup, PluginGroupBuilder};
 
 pub mod core;
 pub mod input;
 pub mod log;
+
+pub mod vertices;
 
 /// A default set of plugins to get an app up and running. This also includes
 /// most (but not all) of the same plugins in [`bevy::DefaultPlugins`] for ease
@@ -16,10 +20,7 @@ impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>()
             // Add log plugin early so we can see what's going on
-
-            // TODO: Get socket logging working
-            // .add(log::SocketLogPlugin);
-        ;
+            .add(log::SocketLogPlugin);
 
         group = group
             .add(bevy::log::LogPlugin::default())
