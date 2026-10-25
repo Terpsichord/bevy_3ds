@@ -7,7 +7,7 @@ const CLEAR_COLOR: u32 = 0x68_B0_D8_FF;
 use std::boxed::Box;
 use std::ops::ControlFlow;
 use std::pin::Pin;
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use citro3d::{
     attrib,
@@ -176,9 +176,34 @@ impl App {
 }
 
 fn main() {
+    // let mut soc = Soc::new().expect("failed to get SOC");
+    // drop(soc.redirect_to_3dslink(true, true));
+    // 
+    // let mut matrix4 = Matrix4::identity();
+    // matrix4.rotate_y(-FRAC_PI_2);
+    // matrix4.translate(1.0, 5.0, 10.0);
+    // println!("{matrix4:?}");
+    // 
+    // let mut transform = bevy::prelude::Transform::default();
+    // transform.rotate_y(-FRAC_PI_2);
+    // transform.translation += bevy::math::vec3(1.0, 5.0, 10.0);
+    // let mat4 = transform.compute_matrix();
+    // println!("{mat4:?}");
+    // 
+    // let cols = mat4.to_cols_array();
+    // println!("{cols:?}");
+    // let matrix = Matrix4::from_cells_wzyx([
+    //     cols[12], cols[8], cols[4], cols[0],
+    //     cols[13], cols[9], cols[5], cols[1],
+    //     cols[14], cols[10], cols[6], cols[2],
+    //     cols[15], cols[11], cols[7], cols[3],
+    // ]);
+    // println!("{matrix:?}");
+    // return;
+
     let (mut hid, apt, gfx) = init_services();
 
-    let n = 10;
+    let n = 20;
     let entities = (0..n).map(|i: u32| {
         let angle = i as f32 * (2.0 * PI) / (n as f32);
         Entity::new(VERTICES).with_transform(Transform {
@@ -236,8 +261,8 @@ fn main() {
 }
 
 fn init_services() -> (Hid, Apt, Gfx) {
-    let mut soc = Soc::new().expect("failed to get SOC");
-    drop(soc.redirect_to_3dslink(true, true));
+    // let mut soc = Soc::new().expect("failed to get SOC");
+    // drop(soc.redirect_to_3dslink(true, true));
 
     let hid = Hid::new().expect("Couldn't obtain HID controller");
     let apt = Apt::new().expect("Couldn't obtain APT controller");

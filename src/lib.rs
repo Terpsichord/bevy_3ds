@@ -7,6 +7,7 @@ use bevy::app::{PluginGroup, PluginGroupBuilder};
 pub mod core;
 pub mod input;
 pub mod log;
+pub mod render;
 
 pub mod vertices;
 
@@ -41,6 +42,7 @@ impl PluginGroup for DefaultPlugins {
         group = group.add(core::CorePlugin).add(input::InputPlugin);
 
         // TODO: feature-dependent plugins like render, gltf, audio, etc.
+        group = group.add(render::RenderPlugin);
 
         group
     }
